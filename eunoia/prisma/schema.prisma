@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id            Int     @id @default(1)
+  name          String
+  headline      String
+  bio           String
+  locationLabel String
+  availability  String
+  email         String
+  githubUrl     String  @default("")
+  linkedinUrl   String  @default("")
+  avatarUrl     String  @default("")
+}
+
+model SiteSettings {
+  id                Int    @id @default(1)
+  nowLearning       String
+  nowBuilding       String
+  nowExperimenting  String
+  openFor           String
+  heroVideoUrl      String @default("") // /uploads/hero.webm or empty
+  heroPosterUrl     String @default("")
+  theme             String @default("system") // system | olive
+  roadmap           String @default("") // one rung per line: "Video editing | first cash"
+  currentStage      Int    @default(0)
+}
+
+// status: LEARNING | PRACTICING | PORTFOLIO_READY | CLIENT_READY | ADVANCED
+// category: DATA | PRODUCT | DIGITAL | GROWTH | AUTOMATION | AI
+model Skill {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  category    String
+  description String   @default("")
+  status      String   @default("LEARNING")
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projects ProjectSkill[]
+  labs     LabEntrySkill[]
+}
+
+// status: DRAFT | READY | PUBLISHED | ARCHIVED
+// projectType: CLIENT | SELF_INITIATED | EXPERIMENT
+model Project {
+  id               Int       @id @default(autoincrement())
+  projectNumber    Int
+  title            String
+  slug             String    @unique
+  shortDescription String
+  problem          String    @default("")
+  approach         String    @default("")
+  solution         String    @default("")
+  result           String    @default("")
+  systemFlow       String    @default("") // newline-separated steps
+  stack            String    @default("") // newline-separated
+  projectType      String    @default("SELF_INITIATED")
+  clientName       String?
+  year             Int
+  status           String    @default("DRAFT")
+  coverMediaId     Int?
+  liveUrl          String?
+  githubUrl        String?
+  featured         Boolean   @default(false)
+  seoTitle         String?
+  seoDescription   String?
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  cover  Media?         @relation("ProjectCover", fields: [coverMediaId], references: [id])
+  skills ProjectSkill[]
+  media  Media[]        @relation("ProjectMedia")
+  testimonials Testimonial[]
+}
+
+model ProjectSkill {
+  projectId Int
+  skillId   Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, skillId])
+}
+
+// type: Experiment | Build | Research | Prototype | Technical Note | Concept | Case Study
+model LabEntry {
+  id           Int       @id @default(autoincrement())
+  labNumber    Int
+  title        String
+  slug         String    @unique
+  type         String    @default("Experiment")
+  summary      String
+  content      String    @default("")
+  whatILearned String    @default("")
+  status       String    @default("DRAFT")
+  coverMediaId Int?
+  demoUrl      String?
+  githubUrl    String?
+  publishedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  cover  Media?          @relation("LabCover", fields: [coverMediaId], references: [id])
+  skills LabEntrySkill[]
+  media  Media[]         @relation("LabMedia")
+}
+
+model LabEntrySkill {
+  labEntryId Int
+  skillId    Int
+  labEntry   LabEntry @relation(fields: [labEntryId], references: [id], onDelete: Cascade)
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([labEntryId, skillId])
+}
+
+// visibility: PUBLIC | PRIVATE
+model Capability {
+  id            Int     @id @default(autoincrement())
+  name          String
+  slug          String  @unique
+  category      String
+  description   String  @default("")
+  whatISolve    String  @default("")
+  deliverables  String  @default("") // newline-separated
+  startingPrice String?
+  timeline      String?
+  visibility    String  @default("PUBLIC")
+  sortOrder     Int     @default(0)
+}
+
+// type: image | video
+model Media {
+  id         Int      @id @default(autoincrement())
+  filePath   String
+  altText    String
+  caption    String?
+  type       String   @default("image")
+  projectId  Int?
+  labEntryId Int?
+  published  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  project  Project?  @relation("ProjectMedia", fields: [projectId], references: [id], onDelete: SetNull)
+  labEntry LabEntry? @relation("LabMedia", fields: [labEntryId], references: [id], onDelete: SetNull)
+
+  coverOfProjects Project[]  @relation("ProjectCover")
+  coverOfLabs     LabEntry[] @relation("LabCover")
+}
+
+model Testimonial {
+  id                  Int     @id @default(autoincrement())
+  name                String
+  role                String
+  company             String
+  quote               String
+  avatarUrl           String?
+  projectId           Int?
+  permissionToPublish Boolean @default(false)
+  published           Boolean @default(false)
+  createdAt           DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+// status: NEW | REVIEWING | CONTACTED | QUALIFIED | PROPOSAL | WON | LOST | ARCHIVED
+model Inquiry {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String
+  company    String?
+  improve    String   // step 1: what to improve
+  need       String   // step 3: what do you need
+  budget     String?
+  timeline   String?
+  message    String
+  problem    String   @default("")
+  source     String   @default("site")
+  status     String   @default("NEW")
+  notes      String   @default("")
+  nextAction String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
