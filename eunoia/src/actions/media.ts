@@ -1,8 +1,8 @@
 "use server";
 
-import { writeFile, unlink, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { put, del } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
@@ -21,7 +21,7 @@ const MAX = 25 * 1024 * 1024;
 
 export type MediaState = { error?: string; ok?: boolean };
 
-// ponytail: writes to public/uploads. Swap for blob storage at deploy time.
+// Files live in Vercel Blob (public URLs stored in Media.filePath). Needs BLOB_READ_WRITE_TOKEN.
 export async function uploadMedia(_: MediaState, form: FormData): Promise<MediaState> {
   await requireSession();
   const file = form.get("file");
@@ -34,13 +34,11 @@ export async function uploadMedia(_: MediaState, form: FormData): Promise<MediaS
 
   const ext = path.extname(file.name).toLowerCase() || `.${file.type.split("/")[1]}`;
   const name = `${randomUUID()}${ext}`;
-  const dir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, name), Buffer.from(await file.arrayBuffer()));
+  const blob = await put(`uploads/${name}`, file, { access: "public", contentType: file.type });
 
   await db.media.create({
     data: {
-      filePath: `/uploads/${name}`,
+      filePath: blob.url,
       altText,
       caption: str(form, "caption") || null,
       type,
@@ -76,9 +74,9 @@ export async function deleteMedia(form: FormData) {
   const id = Number(form.get("id"));
   const m = await db.media.delete({ where: { id } });
   try {
-    await unlink(path.join(process.cwd(), "public", m.filePath));
+    if (m.filePath.startsWith("https://")) await del(m.filePath);
   } catch {
-    /* file already gone */
+    // blob already gone; row is deleted, that's what matters
   }
   revalidatePath("/studio/media");
   revalidatePath("/work");

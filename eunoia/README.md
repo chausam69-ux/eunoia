@@ -38,9 +38,13 @@ npx eslint src
 npm run build
 ```
 
-## Deploy later
+## Deploy (Vercel + Neon + Vercel Blob, all free tier)
 
-SQLite + `public/uploads` are not durable on Vercel. Swap `DATABASE_URL` to Turso (`@libsql/client` adapter) or Postgres and change `provider` in `prisma/schema.prisma`; move uploads to Vercel Blob. Set a real `AUTH_SECRET`.
+1. Vercel → Add New Project → import `chausam69-ux/eunoia` → **Root Directory: `eunoia`**
+2. Vercel project → Storage → create **Neon Postgres** (sets `DATABASE_URL`) and **Blob** (sets `BLOB_READ_WRITE_TOKEN`)
+3. Environment variables: `AUTH_SECRET` (`openssl rand -base64 32`), `AUTH_TRUST_HOST=true`, `STUDIO_EMAIL`, `STUDIO_PASSWORD_HASH`
+4. Deploy. Then once, locally with the Neon URL in `.env`: `npx prisma db push && npx prisma db seed`
+5. Media uploads go to Blob; `Media.filePath` stores the public blob URL.
 
 ## Design references
 
